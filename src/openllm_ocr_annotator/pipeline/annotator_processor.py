@@ -27,6 +27,7 @@ from tqdm import tqdm
 from src.openllm_ocr_annotator.annotators.base import BaseAnnotator
 from utils.formatter import parse_json_from_text
 
+
 logger = setup_logger(__name__)
 
 class AnnotatorProcessor:
@@ -72,39 +73,43 @@ class AnnotatorProcessor:
             futures = [executor.submit(self.process_single_image, str(img_path)) for img_path in image_files]
             results = [future.result() for future in tqdm(futures, desc=f"Processing with {self.annotator.name}", unit="image")]
     
-    def process_single_image(self, image_path: str) -> Dict:
+    def process_single_image(self, image_path: str) -> List[Dict]:
+
         """Process single image and save result."""
         img_path = Path(image_path)
-        result_path = self.output_dir / f"{img_path.stem}.json"
-        
-        # Skip if already processed
-        if result_path.exists():
-            #logger.info(f"Loading cached result for {img_path.name}")
-            with open(result_path, 'r') as f:
-                return json.load(f)
+
+        result_path = self.output_dir / f"{img_path.stem}" 
+
+        result_path.mkdir(exist_ok=True)
         
         try:
-            # Run annotation and get result
-            result = self.annotator.annotate(str(img_path))
-            # Parse result if it's a string, otherwise use as is
-            if isinstance(result, str):
-                result = parse_json_from_text(result)
-            elif isinstance(result, dict) and "result" in result:
-                # If result is a dict with "result" key, parse that if it's a string
-                if isinstance(result["result"], str):
-                    result["result"] = parse_json_from_text(result["result"])
             
-            if not result['result']:
-                logger.warning(f"No valid annotation found for {img_path.name} while using {getattr(self.annotator, "model", "default")}")
-                logger.warning(f"Result: {result}")
-                return None
-            
-            # Save result
-            with open(result_path, 'w') as f:
-                json.dump(result, f, indent=2, ensure_ascii=False)
-            
-            return result
-            
+            # Run annotation and get result: list of dict
+            result_list = self.annotator.annotate(str(img_path))
+
+            for id, result in enumerate(result_list):
+
+                image_result_path = result_path / f"{img_path.stem}_{id}.json"
+
+                # Parse result if it's a string, otherwise use as is
+                if isinstance(result, str):
+                    result = parse_json_from_text(result)
+                elif isinstance(result, dict) and "result" in result:
+                    # If result is a dict with "result" key, parse that if it's a string
+                    if isinstance(result["result"], str):
+                        result["result"] = parse_json_from_text(result["result"])
+                
+                if not result['result']:
+                    #logger.warning(f"No valid annotation found for {img_path.name} while using {getattr(self.annotator, "model", "default")}")
+                    #logger.warning(f"Result: {result}")
+                    return None
+
+                with open(image_result_path, 'w') as f:
+
+                    json.dump(result, f, indent=2, ensure_ascii=False)
+                
+            return result_list
+                
         except Exception as e:
             logger.error(f"Error processing {img_path}: {e}")
             return None

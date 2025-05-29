@@ -78,6 +78,7 @@ class OpenAIAnnotator(BaseAnnotator):
         self.name = name
         self.max_tokens = max_tokens
         self.temperature = temperature
+        logger.info(f"running with temperature: {self.temperature}")
         self.prompt_manager = PromptManager(prompt_path=prompt_path)
     
     @retry_with_backoff(max_retries=3, initial_delay=2.0)
@@ -134,16 +135,33 @@ class OpenAIAnnotator(BaseAnnotator):
                 ],
                 max_tokens=self.max_tokens,
                 temperature=self.temperature,
+                n = 128,
             )
-            
+
+            results = [response.choices[i].message.content for i in range(len(response.choices))]
+            result_packed = []
+            # list of result dicts
+            for result in results:
+                res_dict = {
+                    "result": result,
+                    "model": self.model,    
+                    "task": self.task,
+                    "timestamp": response.created,
+                    "image_path": image_path,
+                }
+                result_packed.append(res_dict)
+
+            return result_packed
+
+            """
             return {
-                "result": response.choices[0].message.content,
+                "result": [response.choices[i].message.content for i in range(len(response.choices))],
                 "model": self.model,
                 "task": self.task,
                 "timestamp": response.created,
                 "image_path": image_path,
             }
-            
+            """
         except Exception as e:
             raise Exception(f"Error during OpenAI annotation annotate {image_path}: {str(e)}")
 

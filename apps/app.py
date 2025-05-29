@@ -21,6 +21,8 @@
 import argparse
 from src import AnnotatorConfigManager
 from src import run_batch_annotation
+import os
+os.environ["OPENAI_API_KEY"] = "dummy"  
 
 argparser = argparse.ArgumentParser(description="OpenLLM OCR Annotator")
 
@@ -33,7 +35,7 @@ argparser.add_argument(
 
 argparser.add_argument(
     "--max-workers",
-    default=8,
+    default=32,
     type=int,
     help="Maximum number of parallel workers for every annotator.",
 )
