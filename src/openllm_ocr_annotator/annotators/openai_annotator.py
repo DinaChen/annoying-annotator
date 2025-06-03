@@ -44,6 +44,7 @@ class OpenAIAnnotator(BaseAnnotator):
             temperature=config.temperature,
             base_url=config.base_url,
             prompt_path=config.prompt_path,
+            n=config.num_samples,
         )
     
     def __init__(
@@ -56,14 +57,20 @@ class OpenAIAnnotator(BaseAnnotator):
         temperature: Optional[float] | None = None,
         base_url: str | httpx.URL | None = None,
         prompt_path: str | None = None,
+        n : int = None
     ):
         """Initialize OpenAI annotator.
         
         Args:
             api_key: OpenAI API key. If None, uses OPENAI_API_KEY env var
+            name: 
             model: Model to use for vision tasks
             task: Annotation task type ('ocr', 'layout', 'vision_extraction')
             max_tokens: Maximum tokens for response
+            temperature: 
+            base_url:
+            prompt_path:
+            n: 
         """
         self.api_key = api_key or os.getenv("OPENAI_API_KEY")
         if not self.api_key:
@@ -80,6 +87,7 @@ class OpenAIAnnotator(BaseAnnotator):
         self.temperature = temperature
         logger.info(f"running with temperature: {self.temperature}")
         self.prompt_manager = PromptManager(prompt_path=prompt_path)
+        self.n = n
     
     @retry_with_backoff(max_retries=3, initial_delay=2.0)
     def annotate(
@@ -136,24 +144,9 @@ class OpenAIAnnotator(BaseAnnotator):
                 max_tokens=self.max_tokens,
                 temperature=self.temperature,
                 n = 128,
-            )
-
-            results = [response.choices[i].message.content for i in range(len(response.choices))]
-            result_packed = []
-            # list of result dicts
-            for result in results:
-                res_dict = {
-                    "result": result,
-                    "model": self.model,    
-                    "task": self.task,
-                    "timestamp": response.created,
-                    "image_path": image_path,
-                }
-                result_packed.append(res_dict)
-
-            return result_packed
-
-            """
+                n=self.n,
+            )    
+    
             return {
                 "result": [response.choices[i].message.content for i in range(len(response.choices))],
                 "model": self.model,
@@ -161,7 +154,7 @@ class OpenAIAnnotator(BaseAnnotator):
                 "timestamp": response.created,
                 "image_path": image_path,
             }
-            """
+        
         except Exception as e:
             raise Exception(f"Error during OpenAI annotation annotate {image_path}: {str(e)}")
 
