@@ -1,6 +1,8 @@
 data
 examples
 *.log
+llm_serve
+.out
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
